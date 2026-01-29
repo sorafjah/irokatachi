@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>いろ・かたちマッチング</title>
+    <style>
+        :root {
+            --primary-bg: #e0f7fa; /* 薄い水色 */
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #ff9800;
+            --button-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Meiryo", sans-serif;
+            background-color: var(--primary-bg);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none; /* テキスト選択禁止 */
+            -webkit-user-select: none;
+        }
+
+        /* メイン画面レイアウト */
+        #game-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* 問題文エリア */
+        #question-area {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #question-text {
+            font-size: 5rem; /* とても大きく */
+            font-weight: bold;
+            color: var(--text-color);
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        /* 選択肢エリア */
+        #options-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+            flex-grow: 1; /* 空間を埋める */
+        }
+
+        .option-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: var(--button-shadow);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.1s, box-shadow 0.1s;
+            /* レスポンシブなサイズ調整 */
+            width: 180px;
+            height: 180px;
+            border: 4px solid transparent;
+        }
+
+        .option-card:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+        }
+
+        .option-card svg {
+            width: 80%;
+            height: 80%;
+        }
+
+        /* フッターエリア（次へボタン・設定ボタン） */
+        #footer-area {
+            width: 100%;
+            height: 100px;
+            display: flex;
+            justify-content: center; /* 次へボタンを中央に */
+            align-items: center;
+            position: relative;
+        }
+
+        /* 次へボタン */
+        #next-btn {
+            font-size: 2rem;
+            padding: 15px 40px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 6px 0 #e65100;
+            cursor: pointer;
+            font-weight: bold;
+            display: none; /* 最初は非表示 */
+        }
+
+        #next-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #e65100;
+        }
+
+        /* 設定ボタン（左下固定） */
+        #settings-btn {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            font-size: 2.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #777;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        /* 設定モーダル */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .radio-group, .checkbox-grid {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-grid label, .radio-group label {
+            display: flex;
+            align-items: center;
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+        }
+
+        .checkbox-grid input, .radio-group input {
+            margin-right: 8px;
+            transform: scale(1.3);
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 600px) {
+            #question-text { font-size: 4rem; }
+            .option-card { width: 130px; height: 130px; }
+            #next-btn { font-size: 1.5rem; padding: 12px 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ゲーム画面 -->
+    <div id="game-screen">
+        <div id="question-area">
+            <h1 id="question-text">あか</h1>
+        </div>
+
+        <div id="options-area">
+            <!-- 選択肢がここに生成されます -->
+        </div>
+
+        <div id="footer-area">
+            <button id="settings-btn" aria-label="設定">⚙</button>
+            <button id="next-btn">つぎへ</button>
+        </div>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">せってい</div>
+            
+            <form id="settings-form">
+                <div class="setting-group">
+                    <span class="setting-label">モード</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="mode" value="color" checked> いろ</label>
+                        <label><input type="radio" name="mode" value="shape"> かたち</label>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">かず（いくつだす？）</span>
+                    <div class="radio-group">
+                        <label><input type="radio" name="count" value="2"> 2つ</label>
+                        <label><input type="radio" name="count" value="3" checked> 3つ</label>
+                        <label><input type="radio" name="count" value="4"> 4つ</label>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">いろ（でるもの）</span>
+                    <div class="checkbox-grid" id="color-settings">
+                        <!-- JSで生成 -->
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <span class="setting-label">かたち（でるもの）</span>
+                    <div class="checkbox-grid" id="shape-settings">
+                        <!-- JSで生成 -->
+                    </div>
+                </div>
+
+                <button type="button" class="save-btn" id="save-settings-btn">OK</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- データ定義 ---
+        const COLORS = {
+            'red': { name: 'あか', hex: '#FF0000' },
+            'blue': { name: 'あお', hex: '#0000FF' },
+            'yellow': { name: 'きいろ', hex: '#FFEB3B' }, // 視認性のため少し暗めに
+            'green': { name: 'みどり', hex: '#008000' },
+            'lightblue': { name: 'みずいろ', hex: '#87CEEB' }, // 追加
+            'yellowgreen': { name: 'きみどり', hex: '#9ACD32' }, // 追加
+            'pink': { name: 'ピンク', hex: '#FF69B4' },
+            'brown': { name: 'ちゃいろ', hex: '#8B4513' },
+            'purple': { name: 'むらさき', hex: '#800080' },
+            'orange': { name: 'オレンジ', hex: '#FFA500' },
+            'black': { name: 'くろ', hex: '#000000' },
+            'white': { name: 'しろ', hex: '#FFFFFF', border: '#ccc' } // 白は見にくいので枠線用
+        };
+
+        const SHAPES = {
+            'circle': { name: 'まる' },
+            'square': { name: 'しかく' },
+            'triangle': { name: 'さんかく' },
+            'star': { name: 'ほし' },
+            'heart': { name: 'はーと' }
+        };
+
+        // --- 状態管理 ---
+        let currentState = {
+            mode: 'color', // 'color' or 'shape'
+            optionCount: 3,
+            activeColors: Object.keys(COLORS),
+            activeShapes: Object.keys(SHAPES),
+            currentAnswerKey: null,
+            isAnswered: false
+        };
+
+        // --- 音声合成（Web Audio API） ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type, duration) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playCorrectSound() {
+            // ピンポン（高いド→高いド）
+            playTone(1046.50, 'sine', 0.2); // High C
+            setTimeout(() => playTone(1046.50, 'sine', 0.4), 200);
+        }
+
+        function playWrongSound() {
+            // ブッブー（低いソ）
+            playTone(196.00, 'sawtooth', 0.15); // G3
+            setTimeout(() => playTone(196.00, 'sawtooth', 0.3), 150);
+        }
+
+        // --- SVG生成ヘルパー ---
+        function getShapeSVG(shapeKey, colorKey) {
+            const colorHex = COLORS[colorKey].hex;
+            const stroke = colorKey === 'white' ? '#ddd' : 'none';
+            const strokeWidth = colorKey === 'white' ? '3' : '0';
+            
+            let shapeTag = '';
+            
+            switch(shapeKey) {
+                case 'circle':
+                    shapeTag = `<circle cx="50" cy="50" r="45" fill="${colorHex}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+                    break;
+                case 'square':
+                    shapeTag = `<rect x="10" y="10" width="80" height="80" rx="5" fill="${colorHex}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+                    break;
+                case 'triangle':
+                    shapeTag = `<polygon points="50,5 95,90 5,90" fill="${colorHex}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+                    break;
+                case 'star':
+                    // 星型
+                    shapeTag = `<polygon points="50,5 61,40 98,40 68,62 79,98 50,75 21,98 32,62 2,40 39,40" fill="${colorHex}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+                    break;
+                case 'heart':
+                    // ハート型（パス）
+                    shapeTag = `<path d="M50 88.9L16.7 55.6C7.2 46.1 7.2 30.9 16.7 21.4s24.7-9.5 33.3 0L50 21.4l0 0 0 0 .1-.1c8.7-9.5 23.8-9.5 33.3 0s9.5 24.7 0 34.2L50 88.9z" fill="${colorHex}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+                    break;
+            }
+
+            return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${shapeTag}</svg>`;
+        }
+
+        // --- ゲームロジック ---
+        function initGame() {
+            loadSettings();
+            generateQuestion();
+        }
+
+        function generateQuestion() {
+            currentState.isAnswered = false;
+            document.getElementById('next-btn').style.display = 'none';
+            
+            // 候補リストの作成
+            let pool = [];
+            if (currentState.mode === 'color') {
+                pool = currentState.activeColors;
+            } else {
+                pool = currentState.activeShapes;
+            }
+
+            // 設定で全てオフにされた場合の安全策
+            if (pool.length < 2) {
+                alert('せってい画面で、2つ以上の項目を選んでください。');
+                openSettings();
+                return;
+            }
+
+            // 正解を決める
+            const answerKey = pool[Math.floor(Math.random() * pool.length)];
+            currentState.currentAnswerKey = answerKey;
+
+            // 選択肢を決める（正解を含める）
+            let options = [answerKey];
+            let remainingPool = pool.filter(k => k !== answerKey);
+            
+            // 残りの選択肢をランダムに追加
+            while (options.length < currentState.optionCount && remainingPool.length > 0) {
+                const randIndex = Math.floor(Math.random() * remainingPool.length);
+                options.push(remainingPool[randIndex]);
+                remainingPool.splice(randIndex, 1);
+            }
+
+            // シャッフル
+            options = options.sort(() => Math.random() - 0.5);
+
+            renderScreen(options);
+        }
+
+        function renderScreen(options) {
+            const questionText = document.getElementById('question-text');
+            const optionsArea = document.getElementById('options-area');
+            optionsArea.innerHTML = '';
+
+            // 質問文の表示
+            if (currentState.mode === 'color') {
+                questionText.textContent = COLORS[currentState.currentAnswerKey].name;
+            } else {
+                questionText.textContent = SHAPES[currentState.currentAnswerKey].name;
+            }
+
+            // 選択肢カードの生成
+            options.forEach(key => {
+                const card = document.createElement('div');
+                card.className = 'option-card';
+                card.dataset.key = key;
+
+                // 図形の描画
+                if (currentState.mode === 'color') {
+                    // 色モード：形はすべて丸で、色を変える
+                    card.innerHTML = getShapeSVG('circle', key);
+                } else {
+                    // 形モード：色は固定（緑）、形を変える
+                    card.innerHTML = getShapeSVG(key, 'green');
+                }
+
+                card.onclick = () => handleAnswer(key);
+                optionsArea.appendChild(card);
+            });
+        }
+
+        function handleAnswer(selectedKey) {
+            if (currentState.isAnswered) return; // 回答済みなら無視
+
+            if (selectedKey === currentState.currentAnswerKey) {
+                // 正解
+                currentState.isAnswered = true;
+                playCorrectSound();
+                // ◯は表示せず、次へボタンのみ表示
+                document.getElementById('next-btn').style.display = 'block';
+            } else {
+                // 不正解
+                playWrongSound();
+                // ✕も表示しない
+            }
+        }
+
+        // --- 設定画面の制御 ---
+        function openSettings() {
+            document.getElementById('settings-modal').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function initSettingsForm() {
+            // 色のチェックボックス生成
+            const colorGrid = document.getElementById('color-settings');
+            Object.keys(COLORS).forEach(key => {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" name="activeColors" value="${key}" checked> ${COLORS[key].name}`;
+                colorGrid.appendChild(label);
+            });
+
+            // 形のチェックボックス生成
+            const shapeGrid = document.getElementById('shape-settings');
+            Object.keys(SHAPES).forEach(key => {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" name="activeShapes" value="${key}" checked> ${SHAPES[key].name}`;
+                shapeGrid.appendChild(label);
+            });
+        }
+
+        function loadSettings() {
+            // 本来はLocalStorageから読み込むが、簡易版のためデフォルト値を使用
+            // フォームの状態を現在のStateに反映
+            // ここでは保存ボタンが押されたときにStateを更新するロジックにする
+        }
+
+        function saveAndCloseSettings() {
+            const form = document.getElementById('settings-form');
+            const formData = new FormData(form);
+
+            // モード
+            currentState.mode = formData.get('mode');
+
+            // 数
+            currentState.optionCount = parseInt(formData.get('count'));
+
+            // 有効な色
+            currentState.activeColors = formData.getAll('activeColors');
+
+            // 有効な形
+            currentState.activeShapes = formData.getAll('activeShapes');
+
+            // バリデーション
+            let currentPool = currentState.mode === 'color' ? currentState.activeColors : currentState.activeShapes;
+            if (currentPool.length < currentState.optionCount) {
+                alert('えらべる数がすくないです。もっとたくさんの いろ・かたち をえらぶか、かず をへらしてください。');
+                return;
+            }
+
+            closeSettings();
+            generateQuestion(); // 設定反映してリセット
+        }
+
+        // --- イベントリスナー ---
+        document.getElementById('next-btn').onclick = generateQuestion;
+        document.getElementById('settings-btn').onclick = openSettings;
+        document.getElementById('save-settings-btn').onclick = saveAndCloseSettings;
+
+        // 初期化実行
+        initSettingsForm();
+        initGame();
+
+    </script>
+</body>
+</html>
