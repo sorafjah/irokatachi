@@ -286,12 +286,12 @@
             'blue': { name: 'あお', hex: '#0000FF' },
             'yellow': { name: 'きいろ', hex: '#FFEB3B' }, // 視認性のため少し暗めに
             'green': { name: 'みどり', hex: '#008000' },
-            'lightblue': { name: 'みずいろ', hex: '#87CEEB' }, // 追加
-            'yellowgreen': { name: 'きみどり', hex: '#9ACD32' }, // 追加
+            'lightblue': { name: 'みずいろ', hex: '#87CEEB' }, 
+            'yellowgreen': { name: 'きみどり', hex: '#9ACD32' }, 
             'pink': { name: 'ピンク', hex: '#FF69B4' },
             'brown': { name: 'ちゃいろ', hex: '#8B4513' },
             'purple': { name: 'むらさき', hex: '#800080' },
-            'orange': { name: 'オレンジ', hex: '#FFA500' },
+            'orange': { name: 'オレンジ', hex: '#FFAB00' }, /* より明るく鮮やかなオレンジに変更 */
             'black': { name: 'くろ', hex: '#000000' },
             'white': { name: 'しろ', hex: '#FFFFFF', border: '#ccc' } // 白は見にくいので枠線用
         };
@@ -332,9 +332,10 @@
         }
 
         function playCorrectSound() {
-            // ピンポン（高いド→高いド）
-            playTone(1046.50, 'sine', 0.2); // High C
-            setTimeout(() => playTone(1046.50, 'sine', 0.4), 200);
+            // ピンポーン（ラ→高いド）
+            // 音程を変化させ、2つの音を滑らかにつなぐことでチャイム感を出す
+            playTone(880.00, 'sine', 0.15); // A5 (ラ)
+            setTimeout(() => playTone(1046.50, 'sine', 0.5), 100); // C6 (ド)
         }
 
         function playWrongSound() {
