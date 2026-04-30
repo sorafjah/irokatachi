@@ -38,6 +38,35 @@
     position: relative;
   }
 
+  /* 正解時の水色の〇 */
+  #correct-mark {
+    position: fixed;
+    top: -1000px;
+    left: -1000px;
+    transform: translate(-50%, -50%) scale(0);
+    width: 200px;
+    height: 200px;
+    border: 30px solid #4FC3F7; /* 水色 */
+    border-radius: 50%;
+    background-color: transparent;
+    opacity: 0;
+    pointer-events: none; /* クリックを邪魔しないように */
+    z-index: 100;
+  }
+
+  /* 正解アニメーション */
+  #correct-mark.show {
+    animation: correctPop 1.5s ease-out forwards;
+  }
+
+  @keyframes correctPop {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+    15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    30% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+  }
+
   /* 問題文エリア */
   #question-area {
     margin-top: 20px;
@@ -225,12 +254,16 @@
     #question-text { font-size: 3.5rem; }
     .option-card { width: 130px; height: 130px; }
     #next-btn { font-size: 1.5rem; padding: 12px 30px; }
+    #correct-mark { width: 150px; height: 150px; border-width: 20px; }
   }
 </style>
 </head>
 <body>
 
 <div id="game-screen">
+  <!-- 正解マーク -->
+  <div id="correct-mark"></div>
+
   <!-- 問題エリア -->
   <div id="question-area">
     <div id="question-text"></div>
@@ -264,7 +297,7 @@
       </div>
 
       <div class="setting-group">
-        <span class="setting-label">もんだいの だしから</span>
+        <span class="setting-label">もんだいの だしかた</span>
         <div class="radio-group">
           <label><input type="radio" name="displayMode" value="text" checked> ことば (あか)</label>
           <label><input type="radio" name="displayMode" value="visual"> おなじもの (え)</label>
@@ -352,8 +385,8 @@ function playTone(freq, type, duration) {
 }
 
 function playCorrectSound() {
-  playTone(880.00, 'sine', 0.15); // A5
-  setTimeout(() => playTone(1046.50, 'sine', 0.5), 100); // C6
+  playTone(1046.50, 'sine', 0.15); // ピン (C6)
+  setTimeout(() => playTone(783.99, 'sine', 0.6), 150); // ポーン (G5)
 }
 
 function playWrongSound() {
@@ -404,6 +437,10 @@ function getRandom(arr) {
 function generateQuestion() {
   currentState.isAnswered = false;
   document.getElementById('next-btn').style.display = 'none';
+  
+  // アニメーションマークを消去（念のため）
+  const correctMark = document.getElementById('correct-mark');
+  correctMark.classList.remove('show');
 
   // 1. 正解を決める
   let ansColor, ansShape;
@@ -449,10 +486,6 @@ function generateQuestion() {
 
     // 重複チェック
     const isDuplicate = options.some(opt => opt.color === c && opt.shape === s);
-    
-    // 「色と形」モードの場合、正解と全く違うもの（色も形も違う）にするか、
-    // 片方だけ違うものにするか調整できますが、ここでは「完全一致以外」を許可します。
-    // ただし、難易度調整として「最低でも1つは属性が違う」のは必須。
     
     if (!isDuplicate) {
       options.push({ color: c, shape: s });
@@ -512,14 +545,13 @@ function renderScreen(options) {
     card.innerHTML = getShapeSVG(opt.shape, opt.color);
     
     // 正解判定用データを持たせる
-    // オブジェクト同士の比較は参照になるので、JSON文字列化して比較などが簡単
-    card.onclick = () => handleAnswer(opt);
+    card.onclick = (e) => handleAnswer(opt, e);
     
     optionsArea.appendChild(card);
   });
 }
 
-function handleAnswer(selectedOpt) {
+function handleAnswer(selectedOpt, event) {
   if (currentState.isAnswered) return;
 
   const isCorrect = (selectedOpt.color === currentState.currentAnswer.color) &&
@@ -528,6 +560,24 @@ function handleAnswer(selectedOpt) {
   if (isCorrect) {
     currentState.isAnswered = true;
     playCorrectSound();
+    
+    // クリックされたカードの位置を取得
+    const rect = event.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    // 正解の〇アニメーションを表示
+    const correctMark = document.getElementById('correct-mark');
+    // 位置を設定
+    correctMark.style.left = centerX + 'px';
+    correctMark.style.top = centerY + 'px';
+
+    // 一度アニメーションをリセットして再再生できるようにする
+    correctMark.classList.remove('show');
+    void correctMark.offsetWidth; // リフローを強制
+    correctMark.classList.add('show');
+
+    // 「つぎへ」ボタンを表示
     document.getElementById('next-btn').style.display = 'block';
   } else {
     playWrongSound();
@@ -583,7 +633,6 @@ function saveAndCloseSettings() {
     alert('かたち を もっとえらんでください（かず より おおく）');
     return;
   }
-  // color_shapeの場合は組み合わせが爆発的に増えるので、とりあえず長さチェックは簡易的に
   if (currentState.mode === 'color_shape' && (currentState.activeColors.length === 0 || currentState.activeShapes.length === 0)) {
     alert('いろ と かたち を えらんでください');
     return;
