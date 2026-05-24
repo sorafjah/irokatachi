@@ -20,7 +20,6 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    /* dvh で Safari/iPadのアドレスバーを除いた実際の高さを使う */
     height: 100dvh;
     overflow: hidden;
     user-select: none;
@@ -32,18 +31,17 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* space-between → 各エリアを flex で制御する方式に変更 */
     justify-content: flex-start;
     padding: 12px 20px;
     box-sizing: border-box;
-    position: relative;
+    position: relative; /* ← 〇の基準点をここにする */
     min-height: 0;
   }
 
+  /* 〇マーク：position:absolute でgame-screen基準に */
   #correct-mark {
-    position: fixed;
-    top: -1000px;
-    left: -1000px;
+    position: absolute;
+    /* top/leftはJSで動的にセット */
     transform: translate(-50%, -50%) scale(0);
     width: 200px;
     height: 200px;
@@ -99,7 +97,6 @@
     gap: 16px;
     width: 100%;
     max-width: 800px;
-    /* 余った領域を使いつつ、縮小も許可 */
     flex: 1 1 auto;
     min-height: 0;
     padding: 10px 0;
@@ -131,11 +128,11 @@
     height: 80%;
   }
 
-  /* フッター：固定高さをやめて内容に合わせる */
   #footer-area {
     flex-shrink: 0;
     width: 100%;
-    padding: 10px 0 16px;
+    /* 常に同じ高さを確保してレイアウトがずれないようにする */
+    height: 80px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -153,7 +150,12 @@
     box-shadow: 0 6px 0 #e65100;
     cursor: pointer;
     font-weight: bold;
-    display: none;
+    /* display切り替えでなくvisibilityで制御 → スペースは常に確保 */
+    visibility: hidden;
+  }
+
+  #next-btn.visible {
+    visibility: visible;
   }
 
   #next-btn:active {
@@ -164,7 +166,8 @@
   #settings-btn {
     position: absolute;
     left: 10px;
-    bottom: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 2.5rem;
     background: none;
     border: none;
@@ -174,13 +177,10 @@
     z-index: 10;
   }
 
-  /* 設定モーダル */
   #settings-modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     background-color: rgba(0,0,0,0.5);
     display: none;
     justify-content: center;
@@ -293,7 +293,6 @@
           <label><input type="radio" name="mode" value="color_shape"> いろ と かたち</label>
         </div>
       </div>
-
       <div class="setting-group">
         <span class="setting-label">もんだいの だしかた</span>
         <div class="radio-group">
@@ -301,7 +300,6 @@
           <label><input type="radio" name="displayMode" value="visual"> おなじもの (え)</label>
         </div>
       </div>
-
       <div class="setting-group">
         <span class="setting-label">かず（いくつだす？）</span>
         <div class="radio-group">
@@ -310,17 +308,14 @@
           <label><input type="radio" name="count" value="4"> 4つ</label>
         </div>
       </div>
-
       <div class="setting-group">
         <span class="setting-label">いろ（でるもの）</span>
         <div class="checkbox-grid" id="color-settings"></div>
       </div>
-
       <div class="setting-group">
         <span class="setting-label">かたち（でるもの）</span>
         <div class="checkbox-grid" id="shape-settings"></div>
       </div>
-
       <button type="button" class="save-btn" id="save-settings-btn">OK</button>
     </form>
   </div>
@@ -390,7 +385,6 @@ function getShapeSVG(shapeKey, colorKey) {
   const colorHex = colorData ? colorData.hex : '#999';
   const stroke = (colorKey === 'white' || colorData.border) ? '#ccc' : 'none';
   const strokeWidth = (colorKey === 'white' || colorData.border) ? '3' : '0';
-
   let shapeTag = '';
   switch(shapeKey) {
     case 'circle':
@@ -423,13 +417,12 @@ function getRandom(arr) {
 
 function generateQuestion() {
   currentState.isAnswered = false;
-  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('next-btn').classList.remove('visible');
 
   const correctMark = document.getElementById('correct-mark');
   correctMark.classList.remove('show');
 
   let ansColor, ansShape;
-
   if (currentState.mode === 'color') {
     if (currentState.activeColors.length < 2) { alert('いろ を 2つ以上えらんでください'); openSettings(); return; }
     ansColor = getRandom(currentState.activeColors);
@@ -462,7 +455,6 @@ function generateQuestion() {
       options.push({ color: c, shape: s });
     }
   }
-
   options.sort(() => Math.random() - 0.5);
   renderScreen(options);
 }
@@ -507,21 +499,30 @@ function renderScreen(options) {
 
 function handleAnswer(selectedOpt, event) {
   if (currentState.isAnswered) return;
+
   const isCorrect = (selectedOpt.color === currentState.currentAnswer.color) &&
                     (selectedOpt.shape === currentState.currentAnswer.shape);
+
   if (isCorrect) {
     currentState.isAnswered = true;
     playCorrectSound();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+
+    // カードの位置を game-screen 基準の座標に変換する
+    const gameScreen = document.getElementById('game-screen');
+    const cardRect = event.currentTarget.getBoundingClientRect();
+    const parentRect = gameScreen.getBoundingClientRect();
+
+    const centerX = cardRect.left - parentRect.left + cardRect.width / 2;
+    const centerY = cardRect.top  - parentRect.top  + cardRect.height / 2;
+
     const correctMark = document.getElementById('correct-mark');
     correctMark.style.left = centerX + 'px';
-    correctMark.style.top = centerY + 'px';
+    correctMark.style.top  = centerY + 'px';
     correctMark.classList.remove('show');
     void correctMark.offsetWidth;
     correctMark.classList.add('show');
-    document.getElementById('next-btn').style.display = 'block';
+
+    document.getElementById('next-btn').classList.add('visible');
   } else {
     playWrongSound();
   }
@@ -564,16 +565,13 @@ function saveAndCloseSettings() {
   currentState.activeShapes = formData.getAll('activeShapes');
 
   if (currentState.mode === 'color' && currentState.activeColors.length < currentState.optionCount) {
-    alert('いろ を もっとえらんでください（かず より おおく）');
-    return;
+    alert('いろ を もっとえらんでください（かず より おおく）'); return;
   }
   if (currentState.mode === 'shape' && currentState.activeShapes.length < currentState.optionCount) {
-    alert('かたち を もっとえらんでください（かず より おおく）');
-    return;
+    alert('かたち を もっとえらんでください（かず より おおく）'); return;
   }
   if (currentState.mode === 'color_shape' && (currentState.activeColors.length === 0 || currentState.activeShapes.length === 0)) {
-    alert('いろ と かたち を えらんでください');
-    return;
+    alert('いろ と かたち を えらんでください'); return;
   }
 
   closeSettings();
